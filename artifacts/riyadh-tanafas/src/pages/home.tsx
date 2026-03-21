@@ -23,6 +23,35 @@ export default function Home() {
         position: "relative",
       }}
     >
+      {/* Top header bar */}
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          right: 0,
+          left: 0,
+          zIndex: 100,
+          background: "rgba(10,5,21,0.75)",
+          backdropFilter: "blur(12px)",
+          borderBottom: "1px solid rgba(255,255,255,.1)",
+          padding: "10px 24px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        {/* Right: school name */}
+        <div style={{ color: "#fff", fontWeight: 900, fontSize: "1.05rem", letterSpacing: ".2px" }}>
+          مدرسة الرياض الابتدائية
+        </div>
+        {/* Left: NAFS logo */}
+        <img
+          src={`${import.meta.env.BASE_URL}nafs-logo.png`}
+          alt="نافس"
+          style={{ height: 52, width: "auto", objectFit: "contain" }}
+        />
+      </div>
+
       <Stars />
       <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", width: "100%", maxWidth: 760 }}>
         <div style={{ textAlign: "center", marginBottom: 40 }}>
