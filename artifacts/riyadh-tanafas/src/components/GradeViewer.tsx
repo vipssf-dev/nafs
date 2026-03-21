@@ -104,7 +104,7 @@ export default function GradeViewer({
       <div
         style={{
           background: headerGrad,
-          padding: "14px 24px",
+          padding: "10px 20px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -115,28 +115,44 @@ export default function GradeViewer({
           gap: 12,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: "1.8rem" }}>🏆</span>
-          <div>
-            <div style={{ color: "#fff", fontSize: "1.25rem", fontWeight: 900 }}>{title}</div>
-            <div style={{ color: "rgba(255,255,255,.75)", fontSize: ".78rem", marginTop: 1 }}>{subtitle}</div>
+        {/* Right side (RTL start): school name */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+          <div style={{ color: "#fff", fontSize: "1.1rem", fontWeight: 900, lineHeight: 1.2 }}>
+            مدرسة الرياض الابتدائية
+          </div>
+          <div style={{ color: "rgba(255,255,255,.75)", fontSize: ".78rem", marginTop: 2 }}>{subtitle}</div>
+        </div>
+
+        {/* Center: trophy + title + badge */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <span style={{ fontSize: "1.6rem" }}>🏆</span>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ color: "#fff", fontSize: "1.1rem", fontWeight: 900 }}>{title}</div>
+            <div
+              style={{
+                background: accent,
+                color: "#fff",
+                padding: "2px 12px",
+                borderRadius: 20,
+                fontWeight: 800,
+                fontSize: ".76rem",
+                display: "inline-block",
+                marginTop: 2,
+                boxShadow: "0 2px 6px rgba(0,0,0,.2)",
+              }}
+            >
+              {badge}
+            </div>
           </div>
         </div>
+
+        {/* Left side (RTL end): NAFS logo + back button */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <div
-            style={{
-              background: accent,
-              color: "#fff",
-              padding: "5px 14px",
-              borderRadius: 20,
-              fontWeight: 800,
-              fontSize: ".82rem",
-              whiteSpace: "nowrap",
-              boxShadow: "0 2px 8px rgba(0,0,0,.25)",
-            }}
-          >
-            {badge}
-          </div>
+          <img
+            src={`${import.meta.env.BASE_URL}nafs-logo.png`}
+            alt="نافس"
+            style={{ height: 52, width: "auto", objectFit: "contain", filter: "drop-shadow(0 2px 4px rgba(0,0,0,.2))" }}
+          />
           <button
             onClick={() => navigate("/")}
             style={{
