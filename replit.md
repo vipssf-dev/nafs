@@ -21,7 +21,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 ```text
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
+│   ├── api-server/         # Express API server
+│   └── riyadh-tanafas/     # الرياض تنافس — Arabic exam practice web app
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
@@ -34,6 +35,35 @@ artifacts-monorepo/
 ├── tsconfig.json           # Root TS project references
 └── package.json            # Root package with hoisted devDeps
 ```
+
+## Artifacts
+
+### `artifacts/riyadh-tanafas` (`@workspace/riyadh-tanafas`)
+
+Arabic educational web app "الرياض تنافس" (Riyadh Tanafas) — practice tests for the Saudi Nafes (نافس) exam.
+Frontend-only React + Vite app served at `/`.
+
+Features:
+- **Home page**: Dark starfield landing page with animated trophy, two grade selector cards
+- **Grade 3 page** (`/grade3`): 67-page practice test with text answer keys (show/hide toggle)
+- **Grade 6 page** (`/grade6`): 200-page practice test with image answer keys (show/hide toggle)
+
+Both grade pages include:
+- Sticky header with grade badge and back button
+- Page navigation (prev/next buttons + jump-to-page input + keyboard arrows)
+- Scrollable thumbnail strip for all pages
+- Full-size question image display
+- Toggleable answer panel
+
+Data files (large base64 JPEG arrays):
+- `src/data/grade3.ts` — 67 question pages + text answers (GRADE3_PAGES, GRADE3_ANSWERS)
+- `src/data/grade6.ts` — 200 question + 200 answer pages (GRADE6_Q_PAGES, GRADE6_A_PAGES)
+
+Key components:
+- `src/components/GradeViewer.tsx` — shared viewer component for both grades
+- `src/pages/home.tsx` — landing page
+- `src/pages/grade3.tsx` — Grade 3 entry point
+- `src/pages/grade6.tsx` — Grade 6 entry point
 
 ## TypeScript & Composite Projects
 
@@ -68,11 +98,8 @@ Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client insta
 
 - `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
 - `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
 - `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
 - Exports: `.` (pool, db, schema), `./schema` (schema only)
-
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
 
 ### `lib/api-spec` (`@workspace/api-spec`)
 

@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "الرياض تنافس"
+version = "1.0.0"
+id = "artifacts/riyadh-tanafas"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20358
+
+[services.development]
+run = "pnpm --filter @workspace/riyadh-tanafas run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/riyadh-tanafas", "run", "build" ]
+publicDir = "artifacts/riyadh-tanafas/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20358"
+BASE_PATH = "/"
