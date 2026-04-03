@@ -109,6 +109,41 @@ export default function Home() {
             onClick={() => navigate("/grade6")}
           />
         </div>
+
+        {/* Quiz section */}
+        <div style={{ width: "100%", marginTop: 16 }}>
+          <div
+            style={{
+              borderTop: "1px solid rgba(255,255,255,.1)",
+              paddingTop: 20,
+              marginBottom: 16,
+              textAlign: "center",
+              color: "rgba(255,255,255,.45)",
+              fontSize: ".8rem",
+              letterSpacing: ".5px",
+            }}
+          >
+            ─── اختبر نفسك ───
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
+            <QuizCard
+              title="اختبار تفاعلي"
+              icon="⚡"
+              desc="1194 سؤالاً في الرياضيات والعلوم واللغة العربية لجميع الصفوف"
+              badges={["⏱️ مؤقت حي", "🎯 متعدد الاختيارات", "📊 نتيجة فورية"]}
+              accent="#F39C12"
+              onClick={() => navigate("/quiz")}
+            />
+            <QuizCard
+              title="الإحصائيات"
+              icon="📊"
+              desc="استعرض توزيع بنك الأسئلة وإحصائيات الاختبارات"
+              badges={["📝 1194 سؤال", "5 مواد دراسية"]}
+              accent="#7D3C98"
+              onClick={() => navigate("/stats")}
+            />
+          </div>
+        </div>
       </div>
 
       <style>{`
@@ -166,6 +201,78 @@ interface GradeCardProps {
   stats: string;
   gradeKey: "g3" | "g6";
   onClick: () => void;
+}
+
+interface QuizCardProps {
+  title: string;
+  icon: string;
+  desc: string;
+  badges: string[];
+  accent: string;
+  onClick: () => void;
+}
+
+function QuizCard({ title, icon, desc, badges, accent, onClick }: QuizCardProps) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        background: "rgba(255,255,255,.05)",
+        border: "1px solid rgba(255,255,255,.1)",
+        borderRadius: 20,
+        padding: "22px 20px",
+        textAlign: "center",
+        color: "#fff",
+        cursor: "pointer",
+        transition: "all .3s",
+        backdropFilter: "blur(12px)",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLElement).style.transform = "translateY(-6px)";
+        (e.currentTarget as HTMLElement).style.borderColor = `${accent}60`;
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLElement).style.transform = "";
+        (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,.1)";
+      }}
+    >
+      <span style={{ fontSize: "2rem", display: "block", marginBottom: 8 }}>{icon}</span>
+      <div style={{ fontSize: "1.05rem", fontWeight: 900, marginBottom: 6, color: accent }}>{title}</div>
+      <div style={{ color: "rgba(255,255,255,.55)", fontSize: ".8rem", marginBottom: 12, lineHeight: 1.5 }}>{desc}</div>
+      <div style={{ display: "flex", gap: 5, justifyContent: "center", flexWrap: "wrap", marginBottom: 14 }}>
+        {badges.map((b) => (
+          <span
+            key={b}
+            style={{
+              padding: "3px 10px",
+              borderRadius: 20,
+              fontSize: ".7rem",
+              fontWeight: 700,
+              background: `${accent}20`,
+              color: accent,
+              border: `1px solid ${accent}40`,
+            }}
+          >
+            {b}
+          </span>
+        ))}
+      </div>
+      <span
+        style={{
+          display: "inline-block",
+          padding: "8px 20px",
+          borderRadius: 10,
+          fontFamily: "'Cairo', sans-serif",
+          fontWeight: 800,
+          fontSize: ".85rem",
+          background: `linear-gradient(135deg,${accent},${accent}bb)`,
+          color: "#fff",
+        }}
+      >
+        انتقل ←
+      </span>
+    </div>
+  );
 }
 
 function GradeCard({ grade, icon, badges, stats, gradeKey, onClick }: GradeCardProps) {

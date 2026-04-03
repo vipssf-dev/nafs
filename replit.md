@@ -44,9 +44,13 @@ Arabic educational web app "الرياض تنافس" (Riyadh Tanafas) — practi
 Frontend-only React + Vite app served at `/`.
 
 Features:
-- **Home page**: Dark starfield landing page with animated trophy, two grade selector cards
+- **Home page**: Dark starfield landing page with animated trophy, two grade selector cards, and two quiz cards
 - **Grade 3 page** (`/grade3`): 67-page practice test with text answer keys (show/hide toggle)
 - **Grade 6 page** (`/grade6`): 200-page practice test with image answer keys (show/hide toggle)
+- **Quiz Setup** (`/quiz`): Interactive quiz configuration — choose subject/grade, topic, difficulty, question count, and time limit
+- **Quiz Session** (`/quiz/session`): Live quiz with countdown timer, question navigation dots, answer selection
+- **Results** (`/results`): Score display with detailed question-by-question review
+- **Stats** (`/stats`): Statistics for the question bank with category breakdown charts
 
 Both grade pages include:
 - Sticky header with grade badge and back button
@@ -55,15 +59,27 @@ Both grade pages include:
 - Full-size question image display
 - Toggleable answer panel
 
+Quiz feature uses the external nafes2.replit.app API (CORS: *) as its backend:
+- `GET https://nafes2.replit.app/api/questions/categories` — 5 categories, 1194 total questions
+- `GET https://nafes2.replit.app/api/questions/topics?category=...` — topics per category
+- `POST https://nafes2.replit.app/api/quiz/sessions` — create session (returns id + questions)
+- `POST https://nafes2.replit.app/api/quiz/sessions/:id/submit` — submit answers
+- `GET https://nafes2.replit.app/api/stats/overview` — stats
+
 Data files (large base64 JPEG arrays):
 - `src/data/grade3.ts` — 67 question pages + text answers (GRADE3_PAGES, GRADE3_ANSWERS)
 - `src/data/grade6.ts` — 200 question + 200 answer pages (GRADE6_Q_PAGES, GRADE6_A_PAGES)
 
 Key components:
 - `src/components/GradeViewer.tsx` — shared viewer component for both grades
+- `src/lib/quizApi.ts` — API client for nafes2 quiz backend
 - `src/pages/home.tsx` — landing page
 - `src/pages/grade3.tsx` — Grade 3 entry point
 - `src/pages/grade6.tsx` — Grade 6 entry point
+- `src/pages/quiz-setup.tsx` — quiz configuration page
+- `src/pages/quiz-session.tsx` — active quiz with timer
+- `src/pages/results.tsx` — quiz results with detailed review
+- `src/pages/stats.tsx` — question bank statistics
 
 ## TypeScript & Composite Projects
 
