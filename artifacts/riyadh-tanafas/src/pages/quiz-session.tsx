@@ -1,15 +1,34 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
-import { submitQuizSession, type QuizSession, type Question } from "@/lib/quizApi";
+import { submitQuizSession, type Question } from "@/lib/quizApi";
+import type { LocalQuestion } from "@/data/localQuestions";
+
+type AnyQuestion = (Question | LocalQuestion) & { passage?: string };
+
+interface SessionData {
+  id: number;
+  questions: AnyQuestion[];
+  timeLimit: number;
+  mode: "local" | "nafes2";
+}
+
+// Detect if a question text references a passage without including it
+function questionNeedsPassage(text: string): boolean {
+  return (
+    /في النص|من النص|الفقرة|القطعة|اقرأ النص|اقرأ الفقرة|بناءً على النص|بناءً على الفقرة/.test(text) &&
+    text.length < 200
+  );
+}
 
 export default function QuizSessionPage() {
   const [, navigate] = useLocation();
-  const [session, setSession] = useState<QuizSession | null>(null);
+  const [session, setSession] = useState<SessionData | null>(null);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number | null>>({});
   const [timeLeft, setTimeLeft] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [showPassage, setShowPassage] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -17,35 +36,61 @@ export default function QuizSessionPage() {
     const raw = localStorage.getItem("activeQuizSession");
     if (!raw) { navigate("/quiz"); return; }
     try {
-      const s: QuizSession = JSON.parse(raw);
+      const s: SessionData = JSON.parse(raw);
       setSession(s);
       setTimeLeft(s.timeLimit);
     } catch { navigate("/quiz"); }
   }, [navigate]);
 
   const handleSubmit = useCallback(
-    async (s: QuizSession, ans: Record<number, number | null>, elapsed: number) => {
+    async (s: SessionData, ans: Record<number, number | null>, elapsed: number) => {
       if (submitting || submitted) return;
       setSubmitting(true);
       if (timerRef.current) clearInterval(timerRef.current);
+
       try {
-        const answerList = s.questions.map((q) => ({
-          questionId: q.id,
-          selectedAnswer: ans[q.id] !== undefined ? ans[q.id] : null,
-        }));
-        const result = await submitQuizSession(s.id, answerList, elapsed);
-        localStorage.setItem("quizResult", JSON.stringify({ ...result, questions: s.questions, answers: ans }));
+        if (s.mode === "local") {
+          // Local questions: compute results client-side
+          const total = s.questions.length;
+          let correct = 0;
+          s.questions.forEach((q) => {
+            if (ans[q.id] === q.correctAnswer) correct++;
+          });
+          const result = {
+            correctAnswers: correct,
+            totalQuestions: total,
+            score: Math.round((correct / total) * 100),
+            timeTaken: elapsed,
+            questions: s.questions,
+            answers: ans,
+            mode: "local",
+          };
+          localStorage.setItem("quizResult", JSON.stringify(result));
+        } else {
+          // nafes2 API: submit remotely
+          const answerList = s.questions.map((q) => ({
+            questionId: q.id,
+            selectedAnswer: ans[q.id] !== undefined ? ans[q.id] : null,
+          }));
+          try {
+            const result = await submitQuizSession(s.id, answerList, elapsed);
+            localStorage.setItem("quizResult", JSON.stringify({ ...result, questions: s.questions, answers: ans }));
+          } catch {
+            // Fallback: compute locally
+            const total = s.questions.length;
+            let correct = 0;
+            s.questions.forEach((q) => { if (ans[q.id] === q.correctAnswer) correct++; });
+            localStorage.setItem("quizResult", JSON.stringify({
+              correctAnswers: correct, totalQuestions: total,
+              score: Math.round((correct / total) * 100), timeTaken: elapsed,
+              questions: s.questions, answers: ans,
+            }));
+          }
+        }
         setSubmitted(true);
         navigate("/results");
-      } catch {
-        // fallback: store what we can
-        const total = s.questions.length;
-        let correct = 0;
-        s.questions.forEach((q) => { if (ans[q.id] === q.correctAnswer) correct++; });
-        const fallback = { correctAnswers: correct, totalQuestions: total, score: Math.round((correct / total) * 100), timeTaken: elapsed, questions: s.questions, answers: ans };
-        localStorage.setItem("quizResult", JSON.stringify(fallback));
-        setSubmitted(true);
-        navigate("/results");
+      } finally {
+        setSubmitting(false);
       }
     },
     [submitting, submitted, navigate]
@@ -66,6 +111,9 @@ export default function QuizSessionPage() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [session, submitted, handleSubmit, answers]);
 
+  // Reset passage view when changing question
+  useEffect(() => { setShowPassage(false); }, [currentIdx]);
+
   if (!session) {
     return (
       <div dir="rtl" style={{ fontFamily: "'Cairo',sans-serif", background: "linear-gradient(135deg,#0f1a2e,#1a0a2e)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
@@ -74,13 +122,15 @@ export default function QuizSessionPage() {
     );
   }
 
-  const q: Question = session.questions[currentIdx];
+  const q = session.questions[currentIdx];
   const total = session.questions.length;
   const answered = Object.keys(answers).length;
   const mins = Math.floor(timeLeft / 60).toString().padStart(2, "0");
   const secs = (timeLeft % 60).toString().padStart(2, "0");
   const isLow = timeLeft < 60;
   const progress = ((currentIdx + 1) / total) * 100;
+  const hasPassage = !!(q as LocalQuestion).passage;
+  const needsPassageNote = !hasPassage && questionNeedsPassage(q.text);
 
   return (
     <div dir="rtl" style={{ fontFamily: "'Cairo',sans-serif", background: "linear-gradient(135deg,#0f1a2e,#1a0a2e,#0a1520)", minHeight: "100vh", padding: "0 0 40px" }}>
@@ -90,7 +140,7 @@ export default function QuizSessionPage() {
       <div style={{ background: "rgba(0,0,0,.35)", backdropFilter: "blur(10px)", borderBottom: "1px solid rgba(255,255,255,.1)", padding: "10px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100 }}>
         <div style={{ color: "#fff", fontWeight: 800, fontSize: ".9rem" }}>
           سؤال {currentIdx + 1} / {total}
-          <span style={{ color: "rgba(255,255,255,.5)", fontWeight: 600, marginRight: 8 }}>({answered} أجبت)</span>
+          <span style={{ color: "rgba(255,255,255,.5)", fontWeight: 600, marginRight: 8 }}>({answered} أُجيب)</span>
         </div>
         <div
           style={{
@@ -121,6 +171,70 @@ export default function QuizSessionPage() {
       </div>
 
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "24px 16px" }}>
+
+        {/* Passage (if attached to question) */}
+        {hasPassage && (
+          <div style={{ marginBottom: 14 }}>
+            <button
+              onClick={() => setShowPassage(!showPassage)}
+              style={{
+                width: "100%",
+                background: showPassage ? "rgba(243,156,18,.18)" : "rgba(255,255,255,.08)",
+                border: `1px solid ${showPassage ? "rgba(243,156,18,.5)" : "rgba(255,255,255,.18)"}`,
+                borderRadius: 12,
+                padding: "10px 16px",
+                color: showPassage ? "#F39C12" : "rgba(255,255,255,.8)",
+                cursor: "pointer",
+                fontFamily: "'Cairo',sans-serif",
+                fontSize: ".88rem",
+                fontWeight: 700,
+                textAlign: "right",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <span>📄 اقرأ النص المرفق أولاً</span>
+              <span>{showPassage ? "▲ إخفاء" : "▼ إظهار"}</span>
+            </button>
+            {showPassage && (
+              <div
+                style={{
+                  background: "rgba(243,156,18,.07)",
+                  border: "1px solid rgba(243,156,18,.25)",
+                  borderRadius: "0 0 12px 12px",
+                  padding: "16px 18px",
+                  color: "rgba(255,255,255,.9)",
+                  fontSize: ".92rem",
+                  lineHeight: 2,
+                  direction: "rtl",
+                  fontWeight: 500,
+                }}
+              >
+                {(q as LocalQuestion).passage}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Note if question needs passage but it's missing */}
+        {needsPassageNote && (
+          <div
+            style={{
+              background: "rgba(243,156,18,.1)",
+              border: "1px solid rgba(243,156,18,.3)",
+              borderRadius: 12,
+              padding: "10px 14px",
+              color: "#ffd32a",
+              fontSize: ".8rem",
+              marginBottom: 14,
+              lineHeight: 1.55,
+            }}
+          >
+            ⚠️ هذا السؤال يشير إلى نص قرائي. يُرجى مراجعة المصدر الأصلي للاطلاع على النص كاملاً.
+          </div>
+        )}
+
         {/* Question card */}
         <div
           style={{
@@ -131,21 +245,48 @@ export default function QuizSessionPage() {
             marginBottom: 20,
           }}
         >
-          <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 8 }}>
-            <span style={{ background: "linear-gradient(135deg,#F39C12,#E67E22)", color: "#fff", width: 30, height: 30, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: ".85rem", flexShrink: 0 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 10 }}>
+            <span
+              style={{
+                background: "linear-gradient(135deg,#F39C12,#E67E22)",
+                color: "#fff",
+                width: 30,
+                height: 30,
+                borderRadius: 8,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 900,
+                fontSize: ".85rem",
+                flexShrink: 0,
+              }}
+            >
               {currentIdx + 1}
             </span>
-            <p style={{ color: "#fff", fontSize: "1.05rem", fontWeight: 700, lineHeight: 1.6, margin: 0 }}>{q.text}</p>
+            <p style={{ color: "#fff", fontSize: "1rem", fontWeight: 700, lineHeight: 1.7, margin: 0 }}>{q.text}</p>
           </div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-            <span style={{ background: "rgba(255,255,255,.08)", color: "rgba(255,255,255,.55)", padding: "2px 10px", borderRadius: 20, fontSize: ".72rem" }}>{q.category}</span>
-            {q.topic && <span style={{ background: "rgba(255,255,255,.08)", color: "rgba(255,255,255,.55)", padding: "2px 10px", borderRadius: 20, fontSize: ".72rem" }}>{q.topic}</span>}
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+            {"category" in q && q.category && (
+              <span style={{ background: "rgba(255,255,255,.08)", color: "rgba(255,255,255,.5)", padding: "2px 10px", borderRadius: 20, fontSize: ".7rem" }}>
+                {(q.category as string).replace("كفايات تربوية - ", "كفايات: ")}
+              </span>
+            )}
+            {"topic" in q && q.topic && (
+              <span style={{ background: "rgba(255,255,255,.08)", color: "rgba(255,255,255,.45)", padding: "2px 10px", borderRadius: 20, fontSize: ".7rem" }}>
+                {q.topic as string}
+              </span>
+            )}
+            {session.mode === "local" && (
+              <span style={{ background: "rgba(39,174,96,.15)", color: "#7bed9f", padding: "2px 10px", borderRadius: 20, fontSize: ".7rem" }}>
+                ✅ موثّق
+              </span>
+            )}
           </div>
         </div>
 
         {/* Options */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 28 }}>
-          {q.options.map((opt, i) => {
+          {q.options.map((opt: string, i: number) => {
             const selected = answers[q.id] === i;
             return (
               <button
@@ -155,17 +296,18 @@ export default function QuizSessionPage() {
                   background: selected ? "linear-gradient(135deg,rgba(243,156,18,.3),rgba(230,126,34,.2))" : "rgba(255,255,255,.06)",
                   border: selected ? "2px solid #F39C12" : "1px solid rgba(255,255,255,.15)",
                   borderRadius: 12,
-                  padding: "14px 18px",
+                  padding: "13px 18px",
                   color: selected ? "#fff" : "rgba(255,255,255,.85)",
                   cursor: "pointer",
                   fontFamily: "'Cairo',sans-serif",
-                  fontSize: ".95rem",
+                  fontSize: ".92rem",
                   fontWeight: selected ? 700 : 500,
                   textAlign: "right",
                   display: "flex",
                   alignItems: "center",
                   gap: 12,
                   transition: ".15s",
+                  lineHeight: 1.55,
                 }}
               >
                 <span
@@ -179,7 +321,7 @@ export default function QuizSessionPage() {
                     alignItems: "center",
                     justifyContent: "center",
                     fontWeight: 800,
-                    fontSize: ".8rem",
+                    fontSize: ".82rem",
                     flexShrink: 0,
                   }}
                 >
@@ -192,7 +334,7 @@ export default function QuizSessionPage() {
         </div>
 
         {/* Navigation */}
-        <div style={{ display: "flex", gap: 10, justifyContent: "space-between" }}>
+        <div style={{ display: "flex", gap: 10, justifyContent: "space-between", alignItems: "center" }}>
           <button
             onClick={() => setCurrentIdx((p) => Math.max(0, p - 1))}
             disabled={currentIdx === 0}
@@ -207,6 +349,7 @@ export default function QuizSessionPage() {
               <button
                 key={i}
                 onClick={() => setCurrentIdx(i)}
+                title={`سؤال ${i + 1}`}
                 style={{
                   width: 10,
                   height: 10,
