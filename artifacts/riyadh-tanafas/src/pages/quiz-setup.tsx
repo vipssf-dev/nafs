@@ -1,27 +1,32 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import {
-  fetchCategories,
-  fetchTopics,
-  createQuizSession,
-  type Category,
-  type Topic,
-} from "@/lib/quizApi";
-import {
-  getLocalCategories,
-  getLocalTopics,
-  getLocalQuizQuestions,
-  type LocalQuestion,
-} from "@/data/localQuestions";
+import { nafsQuestions, getQuestions, getDomains, type NafsQuestion } from "@/data/nafsQuestions";
 
-type QuizMode = "local" | "nafes2";
+type Grade = "grade3" | "grade6";
+type Subject = "لغتي" | "الرياضيات" | "العلوم";
 
-const DIFFICULTY_OPTIONS = [
-  { value: "all", label: "الكل" },
-  { value: "easy", label: "سهل" },
-  { value: "medium", label: "متوسط" },
-  { value: "hard", label: "صعب" },
-];
+const SUBJECTS_BY_GRADE: Record<Grade, Subject[]> = {
+  grade3: ["لغتي", "الرياضيات"],
+  grade6: ["لغتي", "الرياضيات", "العلوم"],
+};
+
+const GRADE_LABELS: Record<Grade, string> = {
+  grade3: "الصف الثالث الابتدائي",
+  grade6: "الصف السادس الابتدائي",
+};
+
+const SUBJECT_ICONS: Record<Subject, string> = {
+  "لغتي": "📖",
+  "الرياضيات": "🔢",
+  "العلوم": "🔬",
+};
+
+const SUBJECT_COLORS: Record<Subject, string> = {
+  "لغتي": "#3498DB",
+  "الرياضيات": "#E74C3C",
+  "العلوم": "#27AE60",
+};
+
 const COUNT_OPTIONS = [5, 10, 15, 20, 30];
 const TIME_OPTIONS = [
   { value: 5, label: "5 دقائق" },
@@ -31,97 +36,68 @@ const TIME_OPTIONS = [
   { value: 30, label: "30 دقيقة" },
 ];
 
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 export default function QuizSetup() {
   const [, navigate] = useLocation();
-  const [mode, setMode] = useState<QuizMode>("local");
-
-  // nafes2 state
-  const [apiCategories, setApiCategories] = useState<Category[]>([]);
-  const [apiTopics, setApiTopics] = useState<Topic[]>([]);
-  const [apiCategory, setApiCategory] = useState("all");
-  const [apiTopic, setApiTopic] = useState("all");
-  const [difficulty, setDifficulty] = useState("all");
-
-  // local state
-  const localCategories = getLocalCategories();
-  const [localCategory, setLocalCategory] = useState("all");
-  const [localTopic, setLocalTopic] = useState("all");
-  const localTopics = localCategory !== "all" ? getLocalTopics(localCategory) : [];
-
+  const [grade, setGrade] = useState<Grade>("grade3");
+  const [subject, setSubject] = useState<Subject>("لغتي");
+  const [domain, setDomain] = useState<string>("all");
   const [questionCount, setQuestionCount] = useState(10);
   const [timeMinutes, setTimeMinutes] = useState(10);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     document.title = "الرياض تنافس - إعداد الاختبار";
-    fetchCategories()
-      .then(setApiCategories)
-      .catch(() => {});
   }, []);
 
+  // Reset subject when grade changes if subject not available
   useEffect(() => {
-    setApiTopic("all");
-    setApiTopics([]);
-    if (apiCategory !== "all") {
-      fetchTopics(apiCategory).then(setApiTopics).catch(() => {});
+    if (!SUBJECTS_BY_GRADE[grade].includes(subject)) {
+      setSubject("لغتي");
     }
-  }, [apiCategory]);
+    setDomain("all");
+  }, [grade, subject]);
 
-  async function handleStart() {
-    setLoading(true);
+  // Reset domain when subject changes
+  useEffect(() => {
+    setDomain("all");
+  }, [subject]);
+
+  const domains = getDomains(subject, grade);
+  const availableQuestions = getQuestions(subject, grade, domain !== "all" ? domain : undefined);
+  const availableCount = availableQuestions.length;
+
+  function handleStart() {
     setError("");
-    try {
-      if (mode === "local") {
-        const questions: LocalQuestion[] = getLocalQuizQuestions({
-          category: localCategory !== "all" ? localCategory : undefined,
-          topic: localTopic !== "all" ? localTopic : undefined,
-          count: questionCount,
-        });
-        if (questions.length === 0) {
-          setError("لا توجد أسئلة لهذا التصنيف، الرجاء اختيار تصنيف آخر.");
-          setLoading(false);
-          return;
-        }
-        const session = {
-          id: Date.now(),
-          questions,
-          timeLimit: timeMinutes * 60,
-          mode: "local" as const,
-        };
-        localStorage.setItem("activeQuizSession", JSON.stringify(session));
-        navigate("/quiz/session");
-      } else {
-        const session = await createQuizSession({
-          questionCount,
-          category: apiCategory === "all" ? undefined : apiCategory,
-          topic: apiTopic === "all" ? undefined : apiTopic,
-          difficulty: difficulty === "all" ? null : difficulty,
-          timeLimit: timeMinutes * 60,
-        });
-        localStorage.setItem(
-          "activeQuizSession",
-          JSON.stringify({ ...session, timeLimit: timeMinutes * 60, mode: "nafes2" })
-        );
-        navigate("/quiz/session");
-      }
-    } catch {
-      setError("حدث خطأ أثناء إنشاء الاختبار. يرجى المحاولة مرة أخرى.");
-    } finally {
-      setLoading(false);
+    if (availableCount === 0) {
+      setError("لا توجد أسئلة لهذا الاختيار.");
+      return;
     }
+
+    const picked: NafsQuestion[] = shuffle(availableQuestions).slice(0, questionCount);
+
+    const session = {
+      id: Date.now(),
+      questions: picked,
+      timeLimit: timeMinutes * 60,
+      mode: "nafs",
+      grade,
+      subject,
+    };
+    localStorage.setItem("activeQuizSession", JSON.stringify(session));
+    navigate("/quiz/session");
   }
 
-  // Count available local questions for the chosen filters
-  const availableCount = (() => {
-    if (mode !== "local") return null;
-    const qs = getLocalQuizQuestions({
-      category: localCategory !== "all" ? localCategory : undefined,
-      topic: localTopic !== "all" ? localTopic : undefined,
-      count: 9999,
-    });
-    return qs.length;
-  })();
+  const accentColor = SUBJECT_COLORS[subject];
+  const actualCount = Math.min(questionCount, availableCount);
 
   return (
     <div
@@ -139,40 +115,26 @@ export default function QuizSetup() {
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28, paddingTop: 8 }}>
-          <button
-            onClick={() => navigate("/")}
-            style={btnSecStyle}
-          >
+          <button onClick={() => navigate("/")} style={btnSecStyle}>
             ← الرئيسية
           </button>
-          <h1 style={{ fontSize: "1.4rem", fontWeight: 900, margin: 0 }}>⚡ إعداد الاختبار التفاعلي</h1>
+          <h1 style={{ fontSize: "1.4rem", fontWeight: 900, margin: 0 }}>⚡ اختبار تدريبي نافس</h1>
         </div>
 
-        {/* Mode toggle */}
+        {/* Source badge */}
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 10,
+            background: "rgba(52,152,219,.1)",
+            border: "1px solid rgba(52,152,219,.25)",
+            borderRadius: 12,
+            padding: "10px 16px",
             marginBottom: 22,
+            fontSize: ".82rem",
+            color: "#74b9ff",
+            lineHeight: 1.6,
           }}
         >
-          <ModeCard
-            active={mode === "local"}
-            onClick={() => setMode("local")}
-            icon="✅"
-            title="أسئلة موثّقة"
-            desc="أسئلة الكفايات التربوية مستخرجة من ملفات الرخصة المهنية ومتحقق من إجاباتها"
-            accent="#27AE60"
-          />
-          <ModeCard
-            active={mode === "nafes2"}
-            onClick={() => setMode("nafes2")}
-            icon="📚"
-            title="بنك نافس"
-            desc="أسئلة الرياضيات والعلوم واللغة العربية من اختبار نافس الطلابي"
-            accent="#3498DB"
-          />
+          📌 الأسئلة مستخرجة من موقع <strong>nafs.pro</strong> — مصنّفة حسب الصف والمادة والمجال بدون أي تداخل.
         </div>
 
         <div
@@ -184,136 +146,104 @@ export default function QuizSetup() {
             backdropFilter: "blur(12px)",
           }}
         >
-          {/* ── LOCAL MODE ── */}
-          {mode === "local" && (
-            <>
-              <div
-                style={{
-                  background: "rgba(39,174,96,.12)",
-                  border: "1px solid rgba(39,174,96,.3)",
-                  borderRadius: 12,
-                  padding: "10px 16px",
-                  marginBottom: 22,
-                  fontSize: ".82rem",
-                  color: "#7bed9f",
-                  lineHeight: 1.6,
-                }}
-              >
-                ✅ هذه الأسئلة مُستخرجة يدوياً من ملفات الكفايات التربوية (eQiyasKefayat) مع التحقق من مفاتيح الإجابة.
-                لا يوجد تداخل بين المواد.
-              </div>
-
-              <SettingBlock label="المجال" icon="📚">
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 8 }}>
-                  <OptionChip label="الكل" active={localCategory === "all"} onClick={() => { setLocalCategory("all"); setLocalTopic("all"); }} />
-                  {localCategories.map((c) => (
-                    <OptionChip
-                      key={c.name}
-                      label={`${c.name.replace("كفايات تربوية - ", "")} (${c.count})`}
-                      active={localCategory === c.name}
-                      onClick={() => { setLocalCategory(c.name); setLocalTopic("all"); }}
-                    />
-                  ))}
-                </div>
-              </SettingBlock>
-
-              {localTopics.length > 0 && (
-                <SettingBlock label="الموضوع" icon="📖">
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
-                    <OptionChip label="الكل" active={localTopic === "all"} onClick={() => setLocalTopic("all")} />
-                    {localTopics.map((t) => (
-                      <OptionChip
-                        key={t.name}
-                        label={`${t.name} (${t.count})`}
-                        active={localTopic === t.name}
-                        onClick={() => setLocalTopic(t.name)}
-                      />
-                    ))}
-                  </div>
-                </SettingBlock>
-              )}
-
-              {availableCount !== null && (
-                <div style={{ color: "rgba(255,255,255,.45)", fontSize: ".8rem", marginBottom: 18 }}>
-                  {availableCount} سؤال متاح — سيتم اختيار {Math.min(questionCount, availableCount)} سؤال
-                </div>
-              )}
-            </>
-          )}
-
-          {/* ── NAFES2 MODE ── */}
-          {mode === "nafes2" && (
-            <>
-              <div
-                style={{
-                  background: "rgba(52,152,219,.1)",
-                  border: "1px solid rgba(52,152,219,.3)",
-                  borderRadius: 12,
-                  padding: "10px 16px",
-                  marginBottom: 22,
-                  fontSize: ".82rem",
-                  color: "#74b9ff",
-                  lineHeight: 1.6,
-                }}
-              >
-                📌 تنبيه: بنك أسئلة نافس يحتوي على أسئلة مختلطة المصادر. اختر فئة محددة لتقليل التداخل بين المواد.
-              </div>
-
-              <SettingBlock label="المادة والصف" icon="📚">
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
-                  {apiCategories.map((c) => (
-                    <OptionChip
-                      key={c.name}
-                      label={`${c.name} (${c.count})`}
-                      active={apiCategory === c.name}
-                      onClick={() => setApiCategory(c.name)}
-                    />
-                  ))}
-                </div>
-                {apiCategories.length === 0 && (
-                  <div style={{ color: "rgba(255,255,255,.4)", fontSize: ".8rem" }}>جاري تحميل الفئات...</div>
-                )}
-              </SettingBlock>
-
-              {apiTopics.length > 0 && (
-                <SettingBlock label="الموضوع" icon="📖">
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
-                    <OptionChip label="الكل" active={apiTopic === "all"} onClick={() => setApiTopic("all")} />
-                    {apiTopics.map((t) => (
-                      <OptionChip
-                        key={t.name}
-                        label={`${t.name} (${t.count})`}
-                        active={apiTopic === t.name}
-                        onClick={() => setApiTopic(t.name)}
-                      />
-                    ))}
-                  </div>
-                </SettingBlock>
-              )}
-
-              <SettingBlock label="مستوى الصعوبة" icon="🎯">
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {DIFFICULTY_OPTIONS.map((d) => (
-                    <OptionChip key={d.value} label={d.label} active={difficulty === d.value} onClick={() => setDifficulty(d.value)} />
-                  ))}
-                </div>
-              </SettingBlock>
-            </>
-          )}
-
-          {/* Shared: question count & time */}
-          <SettingBlock label="عدد الأسئلة" icon="🔢">
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {COUNT_OPTIONS.map((n) => (
-                <OptionChip key={n} label={String(n)} active={questionCount === n} onClick={() => setQuestionCount(n)} />
+          {/* Grade selector */}
+          <SettingBlock label="الصف الدراسي" icon="🎓">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {(["grade3", "grade6"] as Grade[]).map((g) => (
+                <GradeCard
+                  key={g}
+                  active={grade === g}
+                  label={GRADE_LABELS[g]}
+                  onClick={() => setGrade(g)}
+                />
               ))}
             </div>
           </SettingBlock>
 
+          {/* Subject selector */}
+          <SettingBlock label="المادة الدراسية" icon="📚">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+              {SUBJECTS_BY_GRADE[grade].map((s) => (
+                <SubjectCard
+                  key={s}
+                  active={subject === s}
+                  icon={SUBJECT_ICONS[s]}
+                  label={s}
+                  color={SUBJECT_COLORS[s]}
+                  onClick={() => setSubject(s)}
+                  count={nafsQuestions.filter(q => q.subject === s && q.grade === grade).length}
+                />
+              ))}
+            </div>
+          </SettingBlock>
+
+          {/* Domain selector */}
+          {domains.length > 1 && (
+            <SettingBlock label="المجال" icon="📂">
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <OptionChip
+                  label="الكل"
+                  active={domain === "all"}
+                  onClick={() => setDomain("all")}
+                  accent={accentColor}
+                />
+                {domains.map((d) => {
+                  const cnt = getQuestions(subject, grade, d).length;
+                  return (
+                    <OptionChip
+                      key={d}
+                      label={`${d} (${cnt})`}
+                      active={domain === d}
+                      onClick={() => setDomain(d)}
+                      accent={accentColor}
+                    />
+                  );
+                })}
+              </div>
+            </SettingBlock>
+          )}
+
+          {/* Available count */}
+          <div
+            style={{
+              background: `${accentColor}12`,
+              border: `1px solid ${accentColor}30`,
+              borderRadius: 10,
+              padding: "8px 14px",
+              fontSize: ".82rem",
+              color: accentColor,
+              marginBottom: 20,
+            }}
+          >
+            📊 {availableCount} سؤال متاح في هذا التصنيف
+          </div>
+
+          {/* Question count */}
+          <SettingBlock label="عدد الأسئلة" icon="🔢">
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {COUNT_OPTIONS.map((n) => (
+                <OptionChip
+                  key={n}
+                  label={String(n)}
+                  active={questionCount === n}
+                  onClick={() => setQuestionCount(n)}
+                  accent={accentColor}
+                />
+              ))}
+            </div>
+          </SettingBlock>
+
+          {/* Time */}
           <SettingBlock label="الوقت المتاح" icon="⏱️">
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {TIME_OPTIONS.map((t) => (
-                <OptionChip key={t.value} label={t.label} active={timeMinutes === t.value} onClick={() => setTimeMinutes(t.value)} />
+                <OptionChip
+                  key={t.value}
+                  label={t.label}
+                  active={timeMinutes === t.value}
+                  onClick={() => setTimeMinutes(t.value)}
+                  accent={accentColor}
+                />
               ))}
             </div>
           </SettingBlock>
@@ -336,24 +266,23 @@ export default function QuizSetup() {
 
           <button
             onClick={handleStart}
-            disabled={loading}
             style={{
               width: "100%",
-              background: loading ? "rgba(255,255,255,.1)" : "linear-gradient(135deg,#F39C12,#E67E22)",
+              background: `linear-gradient(135deg,${accentColor},${accentColor}bb)`,
               border: "none",
               color: "#fff",
               padding: "14px 24px",
               borderRadius: 14,
-              cursor: loading ? "not-allowed" : "pointer",
+              cursor: "pointer",
               fontFamily: "'Cairo', sans-serif",
               fontSize: "1.05rem",
               fontWeight: 900,
               marginTop: 8,
               transition: ".2s",
-              boxShadow: loading ? "none" : "0 4px 18px rgba(243,156,18,.35)",
+              boxShadow: `0 4px 18px ${accentColor}40`,
             }}
           >
-            {loading ? "جاري الإعداد..." : "ابدأ الاختبار ←"}
+            ابدأ الاختبار ({actualCount} سؤال) ←
           </button>
         </div>
       </div>
@@ -373,37 +302,49 @@ const btnSecStyle: React.CSSProperties = {
   fontWeight: 700,
 };
 
-function ModeCard({
-  active,
-  onClick,
-  icon,
-  title,
-  desc,
-  accent,
+function GradeCard({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        background: active ? "rgba(243,156,18,.18)" : "rgba(255,255,255,.05)",
+        border: `2px solid ${active ? "#F39C12" : "rgba(255,255,255,.12)"}`,
+        borderRadius: 14,
+        padding: "14px 16px",
+        cursor: "pointer",
+        textAlign: "center",
+        transition: ".15s",
+        fontWeight: active ? 800 : 600,
+        color: active ? "#F39C12" : "rgba(255,255,255,.8)",
+        fontSize: ".9rem",
+      }}
+    >
+      {label}
+    </div>
+  );
+}
+
+function SubjectCard({
+  active, icon, label, color, onClick, count,
 }: {
-  active: boolean;
-  onClick: () => void;
-  icon: string;
-  title: string;
-  desc: string;
-  accent: string;
+  active: boolean; icon: string; label: string; color: string; onClick: () => void; count: number;
 }) {
   return (
     <div
       onClick={onClick}
       style={{
-        background: active ? `${accent}18` : "rgba(255,255,255,.05)",
-        border: `2px solid ${active ? accent : "rgba(255,255,255,.12)"}`,
+        background: active ? `${color}18` : "rgba(255,255,255,.05)",
+        border: `2px solid ${active ? color : "rgba(255,255,255,.12)"}`,
         borderRadius: 14,
-        padding: "14px 16px",
+        padding: "14px 12px",
         cursor: "pointer",
-        transition: ".15s",
         textAlign: "center",
+        transition: ".15s",
       }}
     >
-      <div style={{ fontSize: "1.4rem", marginBottom: 6 }}>{icon}</div>
-      <div style={{ fontWeight: 800, fontSize: ".9rem", color: active ? accent : "#fff", marginBottom: 4 }}>{title}</div>
-      <div style={{ fontSize: ".72rem", color: "rgba(255,255,255,.5)", lineHeight: 1.5 }}>{desc}</div>
+      <div style={{ fontSize: "1.6rem", marginBottom: 5 }}>{icon}</div>
+      <div style={{ fontWeight: 800, fontSize: ".9rem", color: active ? color : "#fff", marginBottom: 3 }}>{label}</div>
+      <div style={{ fontSize: ".72rem", color: "rgba(255,255,255,.45)" }}>{count} سؤال</div>
     </div>
   );
 }
@@ -429,13 +370,17 @@ function SettingBlock({ label, icon, children }: { label: string; icon: string; 
   );
 }
 
-function OptionChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function OptionChip({
+  label, active, onClick, accent,
+}: {
+  label: string; active: boolean; onClick: () => void; accent: string;
+}) {
   return (
     <button
       onClick={onClick}
       style={{
-        background: active ? "linear-gradient(135deg,#F39C12,#E67E22)" : "rgba(255,255,255,.08)",
-        border: active ? "1px solid transparent" : "1px solid rgba(255,255,255,.15)",
+        background: active ? `${accent}25` : "rgba(255,255,255,.08)",
+        border: `1.5px solid ${active ? accent : "rgba(255,255,255,.15)"}`,
         color: active ? "#fff" : "rgba(255,255,255,.75)",
         padding: "7px 14px",
         borderRadius: 9,
