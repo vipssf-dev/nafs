@@ -146,6 +146,39 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Footer */}
+      <footer
+        style={{
+          marginTop: 48,
+          textAlign: "center",
+          color: "rgba(255,255,255,.35)",
+          fontSize: ".78rem",
+          lineHeight: 1.9,
+          padding: "0 16px 8px",
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        <div
+          style={{
+            width: 60,
+            height: 1,
+            background: "rgba(255,255,255,.12)",
+            margin: "0 auto 14px",
+          }}
+        />
+        <div style={{ fontWeight: 700, color: "rgba(255,255,255,.55)", fontSize: ".82rem" }}>
+          مدرسة الرياض الابتدائية
+        </div>
+        <div>© 1447 جميع الحقوق محفوظة</div>
+        <div style={{ marginTop: 4 }}>
+          تصميم وتطوير:{" "}
+          <span style={{ color: "rgba(255,255,255,.5)", fontWeight: 700 }}>
+            صالح سفر الغامدي
+          </span>
+        </div>
+      </footer>
+
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap');
         @keyframes float {
