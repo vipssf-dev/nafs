@@ -7,7 +7,9 @@ import QuizSetup from "@/pages/quiz-setup";
 import QuizSessionPage from "@/pages/quiz-session";
 import Results from "@/pages/results";
 import Stats from "@/pages/stats";
+import AdminPage from "@/pages/admin";
 import NotFound from "@/pages/not-found";
+import FeedbackButton from "@/components/FeedbackButton";
 
 const queryClient = new QueryClient();
 
@@ -21,6 +23,7 @@ function Router() {
       <Route path="/quiz/session" component={QuizSessionPage} />
       <Route path="/results" component={Results} />
       <Route path="/stats" component={Stats} />
+      <Route path="/admin" component={AdminPage} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -31,6 +34,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
         <Router />
+        <FeedbackButton />
       </WouterRouter>
     </QueryClientProvider>
   );
