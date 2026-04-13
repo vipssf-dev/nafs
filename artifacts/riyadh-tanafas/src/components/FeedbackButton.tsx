@@ -53,40 +53,66 @@ export default function FeedbackButton() {
 
   return (
     <>
-      {/* Floating button */}
-      <button
-        onClick={() => { setOpen(true); setSent(false); }}
-        title="ملاحظات واقتراحات"
+      {/* Floating button with label */}
+      <div
         style={{
           position: "fixed",
-          bottom: 24,
-          left: 20,
+          bottom: 20,
+          left: 16,
           zIndex: 999,
-          width: 52,
-          height: 52,
-          borderRadius: "50%",
-          background: "linear-gradient(135deg,#1a6b55,#0e8c6b)",
-          border: "2px solid rgba(255,255,255,.2)",
-          color: "#fff",
-          fontSize: "1.3rem",
-          cursor: "pointer",
-          boxShadow: "0 4px 18px rgba(0,0,0,.35)",
           display: "flex",
+          flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
-          transition: "transform .2s, box-shadow .2s",
-        }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLElement).style.transform = "scale(1.1)";
-          (e.currentTarget as HTMLElement).style.boxShadow = "0 6px 24px rgba(0,0,0,.45)";
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLElement).style.transform = "";
-          (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 18px rgba(0,0,0,.35)";
+          gap: 6,
         }}
       >
-        💬
-      </button>
+        <span
+          style={{
+            background: "rgba(14,140,107,.85)",
+            color: "#fff",
+            fontSize: ".68rem",
+            fontWeight: 700,
+            fontFamily: "'Cairo', sans-serif",
+            padding: "3px 9px",
+            borderRadius: 20,
+            backdropFilter: "blur(6px)",
+            whiteSpace: "nowrap",
+            boxShadow: "0 2px 8px rgba(0,0,0,.25)",
+            letterSpacing: ".3px",
+          }}
+        >
+          ملاحظتك تهمنا
+        </span>
+        <button
+          onClick={() => { setOpen(true); setSent(false); }}
+          title="ملاحظات واقتراحات"
+          style={{
+            width: 52,
+            height: 52,
+            borderRadius: "50%",
+            background: "linear-gradient(135deg,#1a6b55,#0e8c6b)",
+            border: "2px solid rgba(255,255,255,.2)",
+            color: "#fff",
+            fontSize: "1.3rem",
+            cursor: "pointer",
+            boxShadow: "0 4px 18px rgba(0,0,0,.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "transform .2s, box-shadow .2s",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.transform = "scale(1.1)";
+            (e.currentTarget as HTMLElement).style.boxShadow = "0 6px 24px rgba(0,0,0,.45)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.transform = "";
+            (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 18px rgba(0,0,0,.35)";
+          }}
+        >
+          💬
+        </button>
+      </div>
 
       {/* Modal overlay */}
       {open && (
