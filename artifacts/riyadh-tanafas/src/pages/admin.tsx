@@ -241,8 +241,10 @@ function FeedbackDashboard() {
   );
 }
 
-export default function AdminPage() {
-  const urlKey = new URLSearchParams(window.location.search).get("k");
+export default function AdminPage(props: { params?: { key?: string } }) {
+  const pathKey = props.params?.key;
+  const queryKey = new URLSearchParams(window.location.search).get("k");
+  const urlKey = pathKey || queryKey;
 
   if (urlKey !== ADMIN_KEY) {
     return (

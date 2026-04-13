@@ -23,6 +23,7 @@ function Router() {
       <Route path="/quiz/session" component={QuizSessionPage} />
       <Route path="/results" component={Results} />
       <Route path="/stats" component={Stats} />
+      <Route path="/admin/:key" component={AdminPage} />
       <Route path="/admin" component={AdminPage} />
       <Route component={NotFound} />
     </Switch>
